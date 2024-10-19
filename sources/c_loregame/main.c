@@ -105,4 +105,3 @@ void showStatus(struct Player* player)
     printf("\n");
     printf("----------------------------------------------------");
 }
-
