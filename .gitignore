@@ -1,2 +1,10 @@
+#env
 /.vscode
+
+#build files
 *.exe
+
+#debug files
+*.ilk
+*.obj
+*.pdb
