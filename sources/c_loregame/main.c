@@ -26,9 +26,15 @@ struct Item
     char name[50];
 };
 
-struct Item itemMap = {1, "Mapa"};
+struct Item itemMap =           {1, "Mapa"};
+struct Item itemBasementKey =   {3, "Chave do Porão"};
+struct Item itemSafeKey =       {4, "Chave do Cofre"};
+struct Item itemBag =           {5, "Bolsa"};
+struct Item itemBandage =       {6, "Bandagem"};
+struct Item itemKnife =         {7, "Faca"};
 
-void ItemMapUse();
+void itemMapUse();
+
 
 //========================= Rooms =========================
 struct Room
@@ -40,22 +46,23 @@ struct Room
 //rooms definition
 
 //X0
-struct Room r_x0y1 = {NULL, true};
-struct Room r_x0y3 = {NULL, false};
+struct Room r_x0y1 = {&itemBag, true}; //has a safe with a money bag inside //requires safe key
+struct Room r_x0y3 = {&itemKnife, false}; //gets knife
 
 //X1
 struct Room r_x1y0 = {NULL, false};
 struct Room r_x1y1 = {&itemMap, false};
-struct Room r_x1y2 = {NULL, false};
-struct Room r_x1y3 = {NULL, false};
+struct Room r_x1y2 = {&itemSafeKey, false}; // requires basement key to access //gets safe key
+
+struct Room r_x1y3 = {NULL, false}; //steps on a razor and bleed //needs a bandage to stop bleeding
 
 //X2
-struct Room r_x2y1 = {NULL, false};
+struct Room r_x2y1 = {&itemBasementKey, false}; //gets basement key
 struct Room r_x2y3 = {NULL, false};
 
 //X3
-struct Room r_x3y2 = {NULL, false};
-struct Room r_x3y3 = {NULL, false};
+struct Room r_x3y2 = {NULL, false}; // exit
+struct Room r_x3y3 = {NULL, false}; //enemy //need to be killed with a knife 
 
 struct Point mapLength = {4, 4};
 
@@ -70,14 +77,14 @@ struct Room* map[4][4] = {
 char PLAYER_STATUS[3][50] = {
     "Aflito", 
     "Aliviado", 
-    "Desgastado"
+    "Sangrando"
 };
 
 enum PlayerStatus
 {
     AFLITO,
     ALIVIADO,
-    DESGASTADO
+    SANGRANDO
 };
 
 struct Player 
@@ -87,9 +94,17 @@ struct Player
     short life;
     short status;
     struct Point pos;
+    struct Item* inventory[5];
 };
 
-struct Player player = {.name = "littlesekii", .maxLife = 10, .life = 10, .status = AFLITO, .pos = {0, 1}};
+struct Player player = {
+    .name = "littlesekii", 
+    .maxLife = 10, 
+    .life = 10, 
+    .status = AFLITO, 
+    .pos = {0, 1}, 
+    .inventory = {NULL, NULL, NULL, NULL, NULL}
+};
 
 //base
 void runTitle();
@@ -104,6 +119,17 @@ char listenOption(short);
 //walk
 void listenWalkOptions();
 
+//check
+void checkAmbient();
+
+//inventory
+bool addInventoryItem(struct Item*);
+bool removeInventoryItem(struct Item*);
+bool checkInventoryItem(short);
+
+
+bool basementLocked = true;
+bool safeLocked = true;
 int main(int argc, char const *argv[])
 {
     system("chcp 65001");
@@ -166,14 +192,18 @@ void runGame()
         switch (choice) {
             case '1':   
                 listenWalkOptions(validOption);
-                break;
+            break;
             case '2':
-                break;
+            break;
             case '3':
-                break;
-            case '4':
-                ItemMapUse();
-                break;
+                checkAmbient();
+            break;
+            case '4':                
+                if (checkInventoryItem(itemMap.id))
+                    itemMapUse();                
+                else
+                    validOption = false;
+            break;
             default:
                 validOption = false;
         }
@@ -200,8 +230,10 @@ char listenOption(short validOption) {
     printf("2 - Abrir Inventário");
     printf("\n");
     printf("3 - Checar Ambiente");
-    printf("\n");
-    printf("4 - Ver mapa");
+    if (checkInventoryItem(itemMap.id)) {
+        printf("\n");
+        printf("4 - Ver mapa");
+    }
     printf("\n");
     printf("\n");
 
@@ -210,7 +242,11 @@ char listenOption(short validOption) {
         printf("\n");
     }
 
-    printf("Escolha uma opção [1, 2, 3, 4]: ");
+    printf("Escolha uma opção [1, 2, 3");
+    if (checkInventoryItem(itemMap.id)) {
+        printf(", 4");
+    }
+    printf("]: ");
 
     char choice[1000];
     scanf("%s", choice);
@@ -221,7 +257,7 @@ char listenOption(short validOption) {
     return *choice;
 }
 
-void ItemMapUse() {
+void itemMapUse() {
 
     system("cls");
     //shows map graphic
@@ -325,7 +361,8 @@ void listenWalkOptions() {
 
     switch(*choice) {
         case '1':
-            player.pos.x--;            
+            player.pos.x--;     
+
             printf("Você andou para a sala da esquerda.");
             break;
         case '2':
@@ -335,16 +372,223 @@ void listenWalkOptions() {
             break;
         case '3':
             player.pos.x++;
+
             printf("Você andou para a sala da direita.");
             break;
         case '4':
+            //verifica porta trancada
+            if (player.pos.x == 1 && player.pos.y == 1) {
+                if (basementLocked) {
+                    printf("Uma gigastesca porta trancada impede que você entre na sala de baixo.");        
+                    printf("\n");
+                    printf("\n");
+
+                    if (!checkInventoryItem(itemBasementKey.id)) {
+                        system("pause");
+                        return;
+                    } else {
+                        basementLocked = false;
+                        removeInventoryItem(&itemBasementKey);
+
+                        printf("Você conseguiu abrí-la com a enorme chave.");        
+                        printf("\n");
+                        printf("\n");
+
+                        printf("~ Usou Chave do Porão");        
+                        printf("\n");
+                        printf("\n");
+
+                        system("pause");
+                        system("cls");
+                    }
+                }
+            }
             player.pos.y++;
+
             printf("Você andou para a sala de baixo.");
             break;    
     }
     map[player.pos.x][player.pos.y]->discovered = true;
+
     printf("\n");
     printf("\n");
     system("pause");
-
 }
+
+
+void checkAmbient() {
+    
+    system("cls");
+
+    //SALA [x]
+    if (player.pos.x == 0 && player.pos.y == 1) {
+        
+        if(safeLocked) {
+            printf("Você olha ao redor e encontra um cofre.");
+            printf("\n");
+            printf("\n");
+            if (checkInventoryItem(itemSafeKey.id)) {
+                removeInventoryItem(&itemSafeKey);
+                addInventoryItem(&itemBag);
+                safeLocked = false;
+                
+                printf("Você destranca o cofre com a chave e encontra uma bolsa.");
+                printf("\n");
+                printf("\n");
+                printf("~ Usou Chave do Porão");  
+                printf("\n");
+                printf("~ Obteve Bolsa");
+                printf("\n");
+                printf("\n");
+                system("pause");
+                return;
+            } 
+            else {
+                printf("Você tenta abrí-lo a força, mas não consegue.");
+                printf("\n");
+                printf("\n");
+                system("pause");
+                return;
+            }
+        }
+
+        printf("Você não encontra mais nada além do cofre já aberto.");
+        printf("\n");
+        printf("\n");
+        system("pause");
+        return;
+    }
+
+    //SALA [ ][x]
+    if (player.pos.x == 1 && player.pos.y == 1) {
+        if (!checkInventoryItem(itemMap.id)) {
+            addInventoryItem(&itemMap);
+            printf("Você encontra um mapa manchado de sangue preso em uma pelúcia.");
+            printf("\n");
+            printf("\n");
+            printf("~ Obteve Mapa");
+            printf("\n");
+            printf("\n");
+            system("pause");
+            return;
+        }
+
+        printf("Você não encontra mais nada, além da pelúcia ensopada de sangue.");
+        printf("\n");
+        printf("\n");
+        system("pause");
+        return;
+    }
+
+    //        [x]
+    //SALA [ ][ ]
+    if (player.pos.x == 1 && player.pos.y == 0) {
+        if (!checkInventoryItem(itemBasementKey.id) && basementLocked) {
+            addInventoryItem(&itemBasementKey);
+            printf("Você abre as portas e gavetas de um armário velho, você encontra");
+            printf("\n");
+            printf("roupas destruídas pelas traças com uma chave grande e pesada no meio delas.");
+            printf("\n");
+            printf("\n");
+            printf("~ Obteve Chave do Porão");
+            printf("\n");
+            printf("\n");
+            system("pause");
+            return;
+        }
+
+        printf("Você não encontra mais nada além das roupas velhas.");
+        printf("\n");
+        printf("\n");
+        system("pause");
+        return;
+    }
+
+    //        [ ]
+    //SALA [ ][ ]
+    //        [x]
+    if (player.pos.x == 1 && player.pos.y == 2) {
+
+        if(safeLocked) {
+            if (!checkInventoryItem(itemSafeKey.id)) {
+                addInventoryItem(&itemSafeKey);
+                printf("Há um quadro pendurado ao lado da grande porta com uma chave pequena.");
+                printf("\n");
+                printf("O quadro está bem alto, você pula para tentar alcançá-lo.");
+                printf("\n");
+                printf("\n");
+                printf("Você bate os dedos na parte de baixo do quadro, ele cai no chão");
+                printf("\n");
+                printf("e o vidro se despedaça e você consegue pegar a chave.");
+                printf("\n");
+                printf("\n");
+                printf("~ Obteve Chave do Cofre");
+                printf("\n");
+                printf("\n");
+                system("pause");
+                return;
+            }
+        }
+
+        printf("Você não encontra mais nada, mas toma muito cuidado para não pisar nos cacos de vidro.");
+        printf("\n");
+        printf("\n");
+        system("pause");
+        return;
+    }
+
+    printf("Você olha ao redor e não encontra nada.");
+    printf("\n");
+    printf("\n");
+    system("pause");
+}
+
+bool addInventoryItem(struct Item* item) {
+    for(int i = 0; i < 5; i++) {
+        if (player.inventory[i] == NULL) {
+            player.inventory[i] = item;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool removeInventoryItem(struct Item* item) {
+    for(int i = 0; i < 5; i++) {
+        if (player.inventory[i] != NULL && player.inventory[i]->id == item->id) {
+            player.inventory[i] = NULL;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool checkInventoryItem(short itemId) {
+    for(int i = 0; i < 5; i++) {
+        if (player.inventory[i] != NULL && player.inventory[i]->id == itemId)
+            return true;
+    }
+
+    return false;
+}
+
+
+// //X0
+// struct Room r_x0y1 = {&itemBag, true}; //has a safe with a money bag inside //requires safe key
+// struct Room r_x0y3 = {&itemKnife, false}; //gets knife
+
+// //X1
+// struct Room r_x1y0 = {NULL, false};
+// struct Room r_x1y1 = {&itemMap, false};
+// struct Room r_x1y2 = {&itemSafeKey, false}; // requires basement key to access //gets safe key
+// struct Room r_x1y3 = {NULL, false}; //steps on a razor and bleed //needs a bandage to stop bleeding
+
+// //X2
+// struct Room r_x2y1 = {&itemBasementKey, false}; //gets basement key
+// struct Room r_x2y3 = {NULL, false};
+
+// //X3
+// struct Room r_x3y2 = {NULL, false}; // exit
+// struct Room r_x3y3 = {NULL, false}; //enemy //need to be killed with a knife 
